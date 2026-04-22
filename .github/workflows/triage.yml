@@ -1,0 +1,115 @@
+name: Triage Demand
+
+on:
+  push:
+    paths:
+      - 'inbox/**'
+      - '.github/workflows/triage.yml'
+      - 'triage/**'
+      - 'requirements.txt'
+  workflow_dispatch:
+    inputs:
+      demand_file:
+        description: >
+          Path to a single demand file (e.g. inbox/my_demand.txt). Leave
+          blank to process every file in inbox/.
+        required: false
+        type: string
+      force:
+        description: >
+          Reprocess every file in inbox/ even if outputs already exist.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: triage-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fail fast if the API key secret is missing
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is not set."
+            echo "Add it under: Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+
+      - name: Triage demands
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEMAND_FILE: ${{ inputs.demand_file }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          mkdir -p outbox
+
+          if [ -n "${DEMAND_FILE:-}" ]; then
+            if [ ! -f "$DEMAND_FILE" ]; then
+              echo "::error::Demand file not found: $DEMAND_FILE"
+              exit 1
+            fi
+            files=("$DEMAND_FILE")
+          else
+            mapfile -t files < <(find inbox -type f \( -name '*.txt' -o -name '*.md' \) -not -name 'README.md' | sort)
+          fi
+
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No demand files found in inbox/. Nothing to do."
+            exit 0
+          fi
+
+          processed=0
+          skipped=0
+          for f in "${files[@]}"; do
+            stem=$(basename "$f")
+            stem="${stem%.*}"
+            report="outbox/${stem}.report.txt"
+            json="outbox/${stem}.json"
+
+            if [ "${FORCE:-false}" != "true" ] && [ -f "$report" ] && [ -f "$json" ] && [ "$f" -ot "$report" ]; then
+              echo "-- skip: $f  (outputs newer than input)"
+              skipped=$((skipped + 1))
+              continue
+            fi
+
+            echo "== triage: $f"
+            python -m triage "$f" --outdir outbox --usage
+            processed=$((processed + 1))
+          done
+
+          echo ""
+          echo "Processed: $processed"
+          echo "Skipped:   $skipped"
+
+      - name: Commit outputs
+        run: |
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add outbox/
+          if git diff --cached --quiet; then
+            echo "No output changes to commit."
+            exit 0
+          fi
+          git commit -m "triage: update outbox outputs [skip ci]"
+          git push

@@ -173,6 +173,14 @@ def main(argv: list[str] | None = None) -> int:
         choices=["low", "medium", "high", "xhigh", "max"],
         help="Effort level (default: high).",
     )
+    parser.add_argument(
+        "--outdir",
+        default=None,
+        help=(
+            "Write both the formatted report and raw JSON to this directory "
+            "(one API call). Uses the input filename stem."
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -200,7 +208,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: Claude API call failed: {exc}", file=sys.stderr)
         return 1
 
-    if args.json:
+    if args.outdir:
+        outdir = Path(args.outdir)
+        outdir.mkdir(parents=True, exist_ok=True)
+        stem = (
+            Path(args.demand).stem
+            if args.demand != "-"
+            else "stdin"
+        )
+        report_path = outdir / f"{stem}.report.txt"
+        json_path = outdir / f"{stem}.json"
+        report_path.write_text(_format_report(result.triage), encoding="utf-8")
+        json_path.write_text(
+            json.dumps(result.triage, indent=2), encoding="utf-8"
+        )
+        print(f"wrote {report_path}")
+        print(f"wrote {json_path}")
+    elif args.json:
         print(json.dumps(result.triage, indent=2))
     else:
         print(_format_report(result.triage))
