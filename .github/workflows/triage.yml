@@ -71,7 +71,7 @@ jobs:
             fi
             files=("$DEMAND_FILE")
           else
-            mapfile -t files < <(find inbox -type f \( -name '*.txt' -o -name '*.md' \) -not -name 'README.md' | sort)
+            mapfile -t files < <(find inbox -type f \( -name '*.txt' -o -name '*.md' -o -name '*.docx' -o -name '*.pdf' \) -not -name 'README.md' | sort)
           fi
 
           if [ ${#files[@]} -eq 0 ]; then

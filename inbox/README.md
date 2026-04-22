@@ -2,9 +2,21 @@
 
 Drop your demand files here — one per file.
 
-- Supported extensions: `.txt`, `.md`
-- Any filename is fine (e.g. `DMD-2026-0417.txt`, `iso-20022-migration.md`)
+- Supported extensions: `.txt`, `.md`, `.docx`, `.pdf`
+- Any filename is fine (e.g. `DMD-2026-0417.txt`, `demand-brief.pdf`,
+  `iso-20022-migration.docx`)
 - Free-form text is accepted; richer demands yield tighter triage
+
+### How each format is handled
+
+| Extension | Handling |
+|-----------|----------|
+| `.txt`, `.md` | Read as UTF-8 text |
+| `.docx` | Text + tables extracted via `python-docx` and fed to the agent |
+| `.pdf` | Sent directly to Claude as a native document — scanned pages, diagrams, tables, and signatures are all read via vision |
+
+If a PDF is a scanned image-only document, the agent still reads it —
+no separate OCR step is required.
 
 ## What happens when you add a file
 

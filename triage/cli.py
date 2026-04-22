@@ -1,15 +1,16 @@
 """CLI for the BPI demand-triage agent.
 
 Usage:
-    python -m triage <path/to/demand.txt>
-    python -m triage -            # read from stdin
+    python -m triage <path/to/demand.{txt,md,docx,pdf}>
+    python -m triage -            # read plain text from stdin
     cat demand.txt | python -m triage -
 
 Flags:
-    --json    emit raw JSON instead of the formatted report
-    --usage   print token usage to stderr
-    --model   override the Claude model id
-    --effort  override the effort level (low|medium|high|max|xhigh)
+    --json       emit raw JSON instead of the formatted report
+    --outdir DIR write both formatted + JSON outputs to DIR
+    --usage      print token usage to stderr
+    --model      override the Claude model id
+    --effort     override the effort level (low|medium|high|xhigh|max)
 """
 
 from __future__ import annotations
@@ -18,17 +19,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 import anthropic
 
 from triage.agent import MODEL, TriageAgent, TriageResult
-
-
-def _read_demand(source: str) -> str:
-    if source == "-":
-        return sys.stdin.read()
-    return Path(source).read_text(encoding="utf-8")
+from triage.loader import SUPPORTED_EXTENSIONS
 
 
 def _format_report(t: dict[str, Any]) -> str:
@@ -150,7 +145,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "demand",
-        help="Path to demand description, or '-' to read from stdin.",
+        help=(
+            "Path to a demand file (.txt, .md, .docx, .pdf), or '-' to read "
+            "plain text from stdin."
+        ),
     )
     parser.add_argument(
         "--json",
@@ -183,20 +181,31 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    try:
-        demand_text = _read_demand(args.demand)
-    except FileNotFoundError:
-        print(f"error: demand file not found: {args.demand}", file=sys.stderr)
-        return 2
-
-    if not demand_text.strip():
-        print("error: demand is empty", file=sys.stderr)
-        return 2
-
     agent = TriageAgent(model=args.model, effort=args.effort)
 
     try:
-        result = agent.triage(demand_text)
+        if args.demand == "-":
+            demand_text = sys.stdin.read()
+            if not demand_text.strip():
+                print("error: demand is empty", file=sys.stderr)
+                return 2
+            result = agent.triage(demand_text)
+        else:
+            path = Path(args.demand)
+            if not path.exists():
+                print(
+                    f"error: demand file not found: {args.demand}",
+                    file=sys.stderr,
+                )
+                return 2
+            if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                print(
+                    f"error: unsupported file type {path.suffix!r}. "
+                    f"Supported: {sorted(SUPPORTED_EXTENSIONS)}",
+                    file=sys.stderr,
+                )
+                return 2
+            result = agent.triage_file(path)
     except anthropic.AuthenticationError:
         print(
             "error: ANTHROPIC_API_KEY missing or invalid. "
@@ -207,6 +216,9 @@ def main(argv: list[str] | None = None) -> int:
     except anthropic.APIError as exc:
         print(f"error: Claude API call failed: {exc}", file=sys.stderr)
         return 1
+    except (ValueError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
     if args.outdir:
         outdir = Path(args.outdir)

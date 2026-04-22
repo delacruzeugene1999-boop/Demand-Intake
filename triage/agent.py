@@ -4,15 +4,31 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import anthropic
 
+from triage.loader import load_demand
 from triage.schema import TRIAGE_SCHEMA
 from triage.system_prompt import SYSTEM_PROMPT
 
 MODEL = "claude-opus-4-7"
 MAX_TOKENS = 16000
+
+_TEXT_INSTRUCTION = (
+    "Screen the following demand using the BPI Demand Screening and Triage "
+    "Manual sequence. Return the structured triage recommendation as JSON.\n\n"
+    "DEMAND:\n"
+)
+
+_DOC_INSTRUCTION = (
+    "Screen the attached demand document using the BPI Demand Screening and "
+    "Triage Manual sequence. The document contains the full demand brief — "
+    "read it in full (including any scanned pages, tables, diagrams, or "
+    "signatures) before classifying. Return the structured triage "
+    "recommendation as JSON."
+)
 
 
 @dataclass
@@ -55,14 +71,32 @@ class TriageAgent:
         self.effort = effort
 
     def triage(self, demand_text: str) -> TriageResult:
-        """Screen one demand and return the parsed triage recommendation.
-
-        `demand_text` may be free-form prose, a structured form, or a paste
-        from the intake system. The agent will identify gaps via Step 2.
-        """
+        """Screen a demand supplied as plain text."""
         if not demand_text or not demand_text.strip():
             raise ValueError("demand_text must be non-empty")
+        return self._run(_TEXT_INSTRUCTION + demand_text)
 
+    def triage_file(self, path: Path | str) -> TriageResult:
+        """Screen a demand from a file (.txt, .md, .docx, or .pdf).
+
+        Text-based formats are read as UTF-8 or extracted to text. PDFs are
+        sent to Claude as a native document block, so scanned pages, tables,
+        and diagrams are understood — not just embedded text.
+        """
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(path)
+        loaded = load_demand(path)
+        if isinstance(loaded, str):
+            return self.triage(loaded)
+        # loaded is a list of Claude content blocks (PDF case). Append the
+        # instruction as a text block so the model knows what to do with
+        # the attachment.
+        return self._run([*loaded, {"type": "text", "text": _DOC_INSTRUCTION}])
+
+    def _run(
+        self, user_content: str | list[dict[str, Any]]
+    ) -> TriageResult:
         response = self.client.messages.create(
             model=self.model,
             max_tokens=MAX_TOKENS,
@@ -81,18 +115,7 @@ class TriageAgent:
                     "cache_control": {"type": "ephemeral"},
                 }
             ],
-            messages=[
-                {
-                    "role": "user",
-                    "content": (
-                        "Screen the following demand using the BPI Demand "
-                        "Screening and Triage Manual sequence. Return the "
-                        "structured triage recommendation as JSON.\n\n"
-                        "DEMAND:\n"
-                        f"{demand_text}"
-                    ),
-                }
-            ],
+            messages=[{"role": "user", "content": user_content}],
         )
 
         text_blocks = [b.text for b in response.content if b.type == "text"]

@@ -32,9 +32,10 @@ GitHub flow:
 1. **One-time: set the API key secret.** In the repo on GitHub, go to
    **Settings → Secrets and variables → Actions → New repository
    secret**, name it `ANTHROPIC_API_KEY`, paste your key.
-2. **Upload a demand.** Commit a file to `inbox/` (any `.txt` or
-   `.md`). You can do this from the GitHub web UI: click **Add file
-   → Create new file**, put it under `inbox/your-name.txt`, commit.
+2. **Upload a demand.** Commit a file to `inbox/`. Supported:
+   `.txt`, `.md`, `.docx`, `.pdf`. From the GitHub web UI: click into
+   `inbox/`, then **Add file → Upload files** (for PDF/DOCX) or
+   **Create new file** (for text), drop your file in, commit.
 3. **Wait ~15–30 seconds.** The **Triage Demand** workflow runs
    automatically (watch it in the **Actions** tab).
 4. **Read the output.** Pull or refresh — two files appear in
@@ -87,7 +88,12 @@ Flags:
 from triage import TriageAgent
 
 agent = TriageAgent()
+
+# From plain text
 result = agent.triage(demand_text)
+
+# From a file (.txt, .md, .docx, or .pdf — handled automatically)
+result = agent.triage_file("inbox/demand-brief.pdf")
 
 print(result.triage["g1_triage_recommendation"])
 print(result.triage["triage_note_draft"])
@@ -101,6 +107,10 @@ blocks, etc.).
 
 ## How it works
 
+- **Multi-format input.** `.txt` / `.md` are read as UTF-8; `.docx` is
+  extracted with `python-docx` (paragraphs + tables); `.pdf` is sent to
+  Claude as a native document block so scanned pages, diagrams, and
+  tables are all understood via vision.
 - **Cached system prompt.** The full BPI manual (`triage/system_prompt.py`)
   is sent as a cacheable system block. Repeated triage calls within the
   cache TTL pay only for the per-demand input, not the manual.
@@ -135,11 +145,12 @@ triage/
   __main__.py        # `python -m triage` entry point
   agent.py           # TriageAgent class + TriageResult dataclass
   cli.py             # argparse CLI + report formatter
+  loader.py          # .txt / .md / .docx / .pdf dispatch
   schema.py          # JSON schema for the 14-section output
   system_prompt.py   # BPI Demand Screening and Triage Manual (frozen)
 .github/workflows/
   triage.yml         # runs the agent on inbox/, writes to outbox/
-inbox/               # drop demand files here
+inbox/               # drop demand files here (txt/md/docx/pdf)
 outbox/              # triage outputs land here (auto-committed)
 examples/            # reference demands
 requirements.txt
