@@ -1,0 +1,39 @@
+Demand Title: PoC - Generative AI assistant for Branch Officer KYC document review
+
+Requester: Liza Tan, Branch Banking Operations
+Sponsor / Accountable Owner: Director, Branch Banking Transformation
+Submission Date: 2026-04-15
+Business Domain: Retail Banking / Branch Operations
+Demand ID: DMD-2026-0392
+
+Business Problem / Objective:
+Branch officers spend 20-30 minutes per new account opening reviewing KYC
+documents (IDs, proof of address, source of funds). We want to validate whether
+a multi-modal LLM can pre-screen the document set, flag mismatches, and surface
+a confidence score to the officer, who remains the accountable decision-maker.
+
+Hypothesis: a 6-week time-boxed PoC with a single branch and a synthetic
+document corpus can demonstrate >= 85% precision on flagging, >= 95% recall on
+missing required documents, and < 30s end-to-end latency.
+
+Stop / Iterate / Scale Decision:
+- STOP: precision below 70% or any data-leakage incident
+- ITERATE: between 70-85% precision (extend by 4 weeks)
+- SCALE: meets thresholds and Cyber + Data + Model Risk sign-off achieved
+
+Impacted Process / Product / Technology:
+- Account opening workflow (read-only sandbox, no production data)
+- Document repository (synthetic copies only)
+- One pilot branch in Makati for staff usability feedback
+
+Effort Band: ~40 person-days for the PoC team
+Cost Band: ~PHP 800K (model API usage + sandbox infra + facilitator time)
+
+Vendor / Third Party: Anthropic Claude API (already on enterprise contract).
+No new vendor onboarding required for the PoC.
+
+Known Dependencies:
+- Cyber: confirm sandbox isolation
+- Data Privacy: confirm synthetic corpus generation method
+- Model Risk: agree on PoC evaluation framework
+- Branch Banking: provide one branch and ten staff hours/week

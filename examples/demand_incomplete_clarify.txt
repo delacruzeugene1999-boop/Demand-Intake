@@ -1,0 +1,9 @@
+Subject: Need a dashboard for our team
+
+Hi team,
+
+Can you build us a dashboard? The current reports are too slow and we need
+something that updates faster. Pretty urgent - the boss wants it next week.
+
+Thanks!
+- Operations

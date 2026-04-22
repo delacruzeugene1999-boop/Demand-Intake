@@ -1,0 +1,26 @@
+Demand Title: Quarterly user-access recertification - Treasury trading desk
+
+Requester: Marvin Cruz, Treasury Operations Manager
+Sponsor / Accountable Owner: Head of Treasury Operations
+Submission Date: 2026-04-19
+Business Domain: Treasury / Front Office
+Demand ID: DMD-2026-0398
+
+Business Problem / Objective:
+Standard quarterly user-access recertification for the Treasury trading
+platform per the existing Identity & Access Management runbook (IAM-RB-014).
+Recertification covers 38 active users across the FX, fixed-income, and money
+market desks. This is a recurring control cycle scheduled at the same cadence
+each quarter and uses the existing IAM workflow tool.
+
+Impacted Process / Product / Technology:
+- Treasury trading platform (existing supported service)
+- IAM platform (existing supported service)
+- No code change, no integration change, no vendor change
+
+Effort Band: ~5 person-days (within standard runbook)
+Cost Band: < PHP 100K (operational time only)
+
+Vendor / Third Party: None.
+
+Known Dependencies: None outside standard IAM workflow.

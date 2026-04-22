@@ -1,0 +1,33 @@
+Demand Title: Replace legacy SWIFT messaging gateway with modernized ISO 20022 platform
+
+Requester: Marco dela Cruz, Head of Wholesale Payments Operations
+Sponsor / Accountable Owner: Anna Reyes, EVP - Transaction Banking Group
+Submission Date: 2026-04-18
+Business Domain: Wholesale Payments / Cash Management
+Demand ID: DMD-2026-0417
+
+Business Problem / Objective:
+Our existing SWIFT MT-based messaging gateway is end-of-life with the vendor
+discontinuing support in Q4 2026. We need to migrate to an ISO 20022 (MX) capable
+platform that supports the BSP-mandated migration timeline, the SWIFT CBPR+ rulebook,
+and our enterprise data lineage controls. The new platform must integrate with our
+core banking SOR, the AML/sanctions screening engine, and the data warehouse used
+by Compliance reporting.
+
+Impacted Process / Product / Technology:
+- Cross-border payments (USD, EUR, JPY corridors)
+- Domestic high-value payments via PhilPaSS
+- Sanctions screening (real-time)
+- AML transaction monitoring (T+1)
+- Regulatory reporting to BSP and AMLC
+
+Effort Band: 200-400 person-days estimated by Architecture during preliminary scan
+Cost Band: PHP 35M-45M (vendor licensing + integration + testing + cutover)
+Vendor / Third Party: Shortlist of three vendors (Volante, Finastra, Bottomline);
+RFP not yet issued.
+
+Known Dependencies:
+- Core banking team must expose new ISO 20022 fields via existing API gateway
+- Cyber must validate vendor SOC 2 + Pen Test results
+- Data team must extend the lineage catalog to cover the new gateway tables
+- Regulatory Reporting team must update BSP submission schemas
