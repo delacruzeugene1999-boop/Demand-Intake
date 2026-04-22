@@ -24,7 +24,31 @@ returns a 14-section G1 triage recommendation:
 13. Triage note draft (5–8 sentences, audit-friendly)
 14. Confidence and escalation flags
 
-## Install
+## Run it in GitHub (no local setup needed)
+
+If you just want to feed demands in and read outputs out, use the
+GitHub flow:
+
+1. **One-time: set the API key secret.** In the repo on GitHub, go to
+   **Settings → Secrets and variables → Actions → New repository
+   secret**, name it `ANTHROPIC_API_KEY`, paste your key.
+2. **Upload a demand.** Commit a file to `inbox/` (any `.txt` or
+   `.md`). You can do this from the GitHub web UI: click **Add file
+   → Create new file**, put it under `inbox/your-name.txt`, commit.
+3. **Wait ~15–30 seconds.** The **Triage Demand** workflow runs
+   automatically (watch it in the **Actions** tab).
+4. **Read the output.** Pull or refresh — two files appear in
+   `outbox/`:
+   - `outbox/your-name.report.txt` — formatted 14-section report
+   - `outbox/your-name.json` — machine-readable JSON
+5. **Re-run on demand.** Open **Actions → Triage Demand → Run
+   workflow** for a manual trigger. You can pass a specific file path
+   or tick **force** to reprocess everything.
+
+The workflow skips files whose outputs are already up-to-date, so
+pushing a batch of ten demands only costs ten API calls (not twenty).
+
+## Run it locally
 
 ```bash
 pip install -r requirements.txt
@@ -52,6 +76,7 @@ Flags:
 | Flag | Default | Notes |
 |------|---------|-------|
 | `--json` | off | Emit raw JSON instead of the formatted report |
+| `--outdir DIR` | — | Write both `<stem>.report.txt` and `<stem>.json` to `DIR` from one API call |
 | `--usage` | off | Print token usage to stderr |
 | `--model` | `claude-opus-4-7` | Override the Claude model id |
 | `--effort` | `high` | One of `low`, `medium`, `high`, `xhigh`, `max` |
@@ -112,6 +137,10 @@ triage/
   cli.py             # argparse CLI + report formatter
   schema.py          # JSON schema for the 14-section output
   system_prompt.py   # BPI Demand Screening and Triage Manual (frozen)
+.github/workflows/
+  triage.yml         # runs the agent on inbox/, writes to outbox/
+inbox/               # drop demand files here
+outbox/              # triage outputs land here (auto-committed)
 examples/            # reference demands
 requirements.txt
 ```
