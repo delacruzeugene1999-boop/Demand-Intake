@@ -1,53 +1,58 @@
 # BPI Demand Triage Agent
 
 Front-door demand-triage copilot that screens incoming technology demand
-strictly per the **BPI Demand Screening and Triage Manual**. Built on the
-Anthropic Claude API (Opus 4.7 + adaptive thinking + structured outputs).
+strictly per the **BPI Demand Screening and Triage Manual** and produces a
+ready-to-share **BTL Hand-Off Pack**. Built on the Anthropic Claude API
+(Opus 4.7 + adaptive thinking + structured outputs).
 
-## What it does
+## What you get for every demand
 
-Feed it a demand (free-form text, email paste, or structured form) and it
-returns a 14-section G1 triage recommendation:
+The agent ingests a demand file and writes two outputs to `outbox/`:
 
-1. Demand intake status
-2. Completeness assessment
-3. Service-family routing (DCG / ISG-Apps / ISG-Infra / CEDA)
-4. Run type (Run / Grow / Innovate)
-5. Subtype (BAU / MR / Project / PoC / Pilot)
-6. Program affiliation (only if Project)
-7. Materiality tier (Tier 1 / 2 / 3)
-8. Overlay triggers (Architecture, Cyber, Data/Privacy, Reg, AI/Model, Vendor, PMO)
-9. Effort and cost bands (E0–E5 / C0–C5)
-10. Provisional delivery path (Agile / Waterfall / Infra Build / Innovation)
-11. Recommended next owner / forum
-12. G1 triage recommendation
-13. Triage note draft (5–8 sentences, audit-friendly)
-14. Confidence and escalation flags
+| File | What it is | Who uses it |
+|------|------------|-------------|
+| `<name>.handoff.md` | **BTL Hand-Off Pack** — a formatted Markdown brief with the G1 verdict, classification decision, required consultations, open questions, and triage note. Renders natively in the GitHub file viewer. | BTLs, PMO, service owners |
+| `<name>.json` | Machine-readable record of the full 14-section triage (same data, typed). | Downstream automation, portfolio dashboards |
 
-## Run it in GitHub (no local setup needed)
+The hand-off pack is organized for fast BTL consumption:
 
-If you just want to feed demands in and read outputs out, use the
-GitHub flow:
+1. **G1 verdict** — one-line call-out with the recommended action
+2. **Demand intake & completeness** — what's present, what's missing, what was assumed
+3. **Classification decision** — family, run type, subtype, program affiliation, materiality (table)
+4. **Required consultations** — overlays sorted mandatory → exception → not needed
+5. **Resourcing signal** — effort/cost bands with confidence and quick-estimate flag
+6. **Provisional delivery path** — Agile / Waterfall / Infra Build / Innovation
+7. **Recommended next owner / forum**
+8. **Open questions & escalation items**
+9. **Triage note** — the 5-8 sentence audit-trail narrative
+
+## Run it in GitHub (no local setup)
+
+The usage model is: upload a demand file to `inbox/`, the workflow runs,
+the hand-off pack appears in `outbox/`.
 
 1. **One-time: set the API key secret.** In the repo on GitHub, go to
    **Settings → Secrets and variables → Actions → New repository
-   secret**, name it `ANTHROPIC_API_KEY`, paste your key.
+   secret**. Name: `ANTHROPIC_API_KEY`. Value: your Claude API key.
 2. **Upload a demand.** Commit a file to `inbox/`. Supported:
    `.txt`, `.md`, `.docx`, `.pdf`. From the GitHub web UI: click into
    `inbox/`, then **Add file → Upload files** (for PDF/DOCX) or
    **Create new file** (for text), drop your file in, commit.
-3. **Wait ~15–30 seconds.** The **Triage Demand** workflow runs
-   automatically (watch it in the **Actions** tab).
-4. **Read the output.** Pull or refresh — two files appear in
-   `outbox/`:
-   - `outbox/your-name.report.txt` — formatted 14-section report
-   - `outbox/your-name.json` — machine-readable JSON
-5. **Re-run on demand.** Open **Actions → Triage Demand → Run
-   workflow** for a manual trigger. You can pass a specific file path
-   or tick **force** to reprocess everything.
+3. **Wait ~15–30 seconds.** The **Triage Demand** workflow triggers
+   automatically — watch it run in the **Actions** tab.
+4. **Read the hand-off pack.** Refresh — two files appear in `outbox/`:
+   - `outbox/your-name.handoff.md` — click it on GitHub for a formatted view.
+   - `outbox/your-name.json` — the raw JSON record.
+5. **Re-run on demand.** Open **Actions → Triage Demand → Run workflow**.
+   Optional inputs: a specific file path, or tick **force** to reprocess
+   everything.
 
 The workflow skips files whose outputs are already up-to-date, so
-pushing a batch of ten demands only costs ten API calls (not twenty).
+pushing a batch of ten demands costs ten API calls, not twenty.
+
+A sample PDF demand (`Post Delivery Review - Automated Risk Score.pdf`)
+is already in `inbox/` — the first workflow run will triage it end-to-end
+so you can see the full flow.
 
 ## Run it locally
 
@@ -56,79 +61,85 @@ pip install -r requirements.txt
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-## Use as a CLI
+### As a CLI
 
 ```bash
-# From a file
-python -m triage examples/demand_complete_project.txt
+# Write the hand-off pack + JSON to a folder (one API call)
+python -m triage inbox/my_demand.pdf --outdir outbox
 
-# From stdin
-cat examples/demand_innovate_poc.txt | python -m triage -
+# Print the hand-off pack (Markdown) to stdout
+python -m triage inbox/my_demand.pdf --markdown
 
-# Raw JSON output
-python -m triage examples/demand_run_bau.txt --json
+# Print the legacy plain-text report to stdout
+python -m triage inbox/my_demand.txt
 
-# Show token usage on stderr
-python -m triage examples/demand_run_bau.txt --usage
+# Print raw JSON to stdout
+python -m triage inbox/my_demand.txt --json
+
+# From stdin (plain text only)
+cat demand.txt | python -m triage -
 ```
 
 Flags:
 
 | Flag | Default | Notes |
 |------|---------|-------|
-| `--json` | off | Emit raw JSON instead of the formatted report |
-| `--outdir DIR` | — | Write both `<stem>.report.txt` and `<stem>.json` to `DIR` from one API call |
+| `--markdown` | off | Emit the BTL hand-off pack to stdout |
+| `--json` | off | Emit raw JSON to stdout |
+| `--outdir DIR` | — | Write `<stem>.handoff.md` and `<stem>.json` to `DIR` (one API call) |
 | `--usage` | off | Print token usage to stderr |
 | `--model` | `claude-opus-4-7` | Override the Claude model id |
 | `--effort` | `high` | One of `low`, `medium`, `high`, `xhigh`, `max` |
 
-## Use as a library
+### As a library
 
 ```python
 from triage import TriageAgent
+from triage.handoff import format_handoff_pack
 
 agent = TriageAgent()
 
 # From plain text
 result = agent.triage(demand_text)
 
-# From a file (.txt, .md, .docx, or .pdf — handled automatically)
+# From a file (.txt, .md, .docx, or .pdf — dispatched automatically)
 result = agent.triage_file("inbox/demand-brief.pdf")
 
+# Render the BTL hand-off pack as Markdown
+print(format_handoff_pack(result.triage, source_name="demand-brief.pdf"))
+
+# Or access structured fields directly
 print(result.triage["g1_triage_recommendation"])
-print(result.triage["triage_note_draft"])
 print(result.usage)
 ```
 
-`result.triage` is a Python dict that conforms exactly to the schema in
-`triage/schema.py`. `result.raw_response` is the full Anthropic
-`Message` object if you need finer-grained access (stop reason, content
-blocks, etc.).
+`result.triage` conforms exactly to `triage/schema.py`.
+`result.raw_response` is the full Anthropic `Message` object if you
+need stop reason, content blocks, or usage in typed form.
 
 ## How it works
 
-- **Multi-format input.** `.txt` / `.md` are read as UTF-8; `.docx` is
-  extracted with `python-docx` (paragraphs + tables); `.pdf` is sent to
-  Claude as a native document block so scanned pages, diagrams, and
-  tables are all understood via vision.
-- **Cached system prompt.** The full BPI manual (`triage/system_prompt.py`)
-  is sent as a cacheable system block. Repeated triage calls within the
-  cache TTL pay only for the per-demand input, not the manual.
+- **Multi-format input.** `.txt` / `.md` → UTF-8; `.docx` →
+  `python-docx` (paragraphs + tables); `.pdf` → Claude native document
+  block, so scanned pages, diagrams, tables, and signatures are read
+  via vision — no separate OCR step.
+- **Cached system prompt.** The full BPI manual
+  (`triage/system_prompt.py`) is sent as a cacheable system block, so
+  repeated triage calls within the cache TTL pay only for the
+  per-demand input.
 - **Structured output.** The model is constrained to emit JSON matching
-  `TRIAGE_SCHEMA` via `output_config.format` — no parsing brittleness,
-  no markdown fences.
-- **Adaptive thinking + high effort.** Triage decisions are layered
-  (intent → materiality → thresholds), so adaptive thinking lets Opus
-  4.7 reason proportionally to the demand's complexity.
+  `TRIAGE_SCHEMA` via `output_config.format` — no parsing brittleness.
+- **Adaptive thinking + high effort.** Opus 4.7 reasons proportionally
+  to the demand's complexity, and burns more tokens on Tier 3 / routing-
+  disputed cases than on BAU.
 - **No improvisation.** The system prompt explicitly forbids generic
   PMO logic and pins every step to the manual. When evidence is
-  insufficient, the agent lowers confidence and recommends clarification
-  instead of fabricating a verdict.
+  insufficient, the agent lowers confidence and recommends
+  clarification rather than fabricating a verdict.
 
 ## Examples
 
-The `examples/` folder ships four reference demands covering the main
-classification outcomes:
+`examples/` ships four reference demands covering the main outcomes:
 
 | File | Expected outcome |
 |------|------------------|
@@ -137,6 +148,8 @@ classification outcomes:
 | `demand_run_bau.txt` | Run / BAU, Tier 1, no overlay triggers |
 | `demand_incomplete_clarify.txt` | Clarification required |
 
+Use any of them locally with `python -m triage examples/<name>.txt --outdir outbox`.
+
 ## Project layout
 
 ```
@@ -144,14 +157,15 @@ triage/
   __init__.py        # public exports
   __main__.py        # `python -m triage` entry point
   agent.py           # TriageAgent class + TriageResult dataclass
-  cli.py             # argparse CLI + report formatter
+  cli.py             # argparse CLI
+  handoff.py         # BTL hand-off pack Markdown formatter
   loader.py          # .txt / .md / .docx / .pdf dispatch
   schema.py          # JSON schema for the 14-section output
   system_prompt.py   # BPI Demand Screening and Triage Manual (frozen)
 .github/workflows/
   triage.yml         # runs the agent on inbox/, writes to outbox/
 inbox/               # drop demand files here (txt/md/docx/pdf)
-outbox/              # triage outputs land here (auto-committed)
+outbox/              # hand-off packs + JSON land here (auto-committed)
 examples/            # reference demands
 requirements.txt
 ```
@@ -164,6 +178,7 @@ requirements.txt
 - Program affiliation is assessed **only after** Project is identified.
 - Delivery path is **provisional at G1** and confirmed later.
 - Overlays are **additive** — they may force stronger governance or
-  reclassification but do not replace sponsor or service-owner accountability.
+  reclassification but do not replace sponsor or service-owner
+  accountability.
 - Work is **not "started"** at G1.
 - Triage **cannot close** without an accepted G1 handoff.

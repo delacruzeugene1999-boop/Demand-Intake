@@ -84,10 +84,10 @@ jobs:
           for f in "${files[@]}"; do
             stem=$(basename "$f")
             stem="${stem%.*}"
-            report="outbox/${stem}.report.txt"
+            handoff="outbox/${stem}.handoff.md"
             json="outbox/${stem}.json"
 
-            if [ "${FORCE:-false}" != "true" ] && [ -f "$report" ] && [ -f "$json" ] && [ "$f" -ot "$report" ]; then
+            if [ "${FORCE:-false}" != "true" ] && [ -f "$handoff" ] && [ -f "$json" ] && [ "$f" -ot "$handoff" ]; then
               echo "-- skip: $f  (outputs newer than input)"
               skipped=$((skipped + 1))
               continue

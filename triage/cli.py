@@ -6,8 +6,9 @@ Usage:
     cat demand.txt | python -m triage -
 
 Flags:
-    --json       emit raw JSON instead of the formatted report
-    --outdir DIR write both formatted + JSON outputs to DIR
+    --markdown   emit the BTL hand-off pack (Markdown) to stdout
+    --json       emit raw JSON to stdout
+    --outdir DIR write both <name>.handoff.md and <name>.json to DIR
     --usage      print token usage to stderr
     --model      override the Claude model id
     --effort     override the effort level (low|medium|high|xhigh|max)
@@ -19,10 +20,12 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import anthropic
 
 from triage.agent import MODEL, TriageAgent, TriageResult
+from triage.handoff import format_handoff_pack
 from triage.loader import SUPPORTED_EXTENSIONS
 
 
@@ -151,9 +154,14 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--markdown",
+        action="store_true",
+        help="Emit the BTL hand-off pack (Markdown) to stdout.",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
-        help="Emit raw JSON instead of the formatted report.",
+        help="Emit raw JSON to stdout.",
     )
     parser.add_argument(
         "--usage",
@@ -175,8 +183,8 @@ def main(argv: list[str] | None = None) -> int:
         "--outdir",
         default=None,
         help=(
-            "Write both the formatted report and raw JSON to this directory "
-            "(one API call). Uses the input filename stem."
+            "Write <stem>.handoff.md (BTL hand-off pack) and <stem>.json "
+            "to this directory (one API call). Uses the input filename stem."
         ),
     )
     args = parser.parse_args(argv)
@@ -223,19 +231,30 @@ def main(argv: list[str] | None = None) -> int:
     if args.outdir:
         outdir = Path(args.outdir)
         outdir.mkdir(parents=True, exist_ok=True)
-        stem = (
-            Path(args.demand).stem
-            if args.demand != "-"
-            else "stdin"
+        source_name = (
+            Path(args.demand).name if args.demand != "-" else "stdin"
         )
-        report_path = outdir / f"{stem}.report.txt"
+        stem = Path(args.demand).stem if args.demand != "-" else "stdin"
+        handoff_path = outdir / f"{stem}.handoff.md"
         json_path = outdir / f"{stem}.json"
-        report_path.write_text(_format_report(result.triage), encoding="utf-8")
+        handoff_path.write_text(
+            format_handoff_pack(
+                result.triage,
+                source_name=source_name,
+                json_sibling=json_path.name,
+            ),
+            encoding="utf-8",
+        )
         json_path.write_text(
             json.dumps(result.triage, indent=2), encoding="utf-8"
         )
-        print(f"wrote {report_path}")
+        print(f"wrote {handoff_path}")
         print(f"wrote {json_path}")
+    elif args.markdown:
+        source_name = (
+            Path(args.demand).name if args.demand != "-" else "stdin"
+        )
+        print(format_handoff_pack(result.triage, source_name=source_name))
     elif args.json:
         print(json.dumps(result.triage, indent=2))
     else:
